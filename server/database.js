@@ -17,8 +17,8 @@ db.serialize(() => {
     data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-    // Tabella per le spese mensili
-    db.run(`CREATE TABLE IF NOT EXISTS spese (
+  // Tabella per le spese mensili
+  db.run(`CREATE TABLE IF NOT EXISTS spese (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     mese INTEGER NOT NULL,
     anno INTEGER NOT NULL,
@@ -28,8 +28,8 @@ db.serialize(() => {
     data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-    // Tabella per i prelievi/stipendi
-    db.run(`CREATE TABLE IF NOT EXISTS prelievi (
+  // Tabella per i prelievi/stipendi
+  db.run(`CREATE TABLE IF NOT EXISTS prelievi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     mese INTEGER NOT NULL,
     anno INTEGER NOT NULL,
@@ -38,7 +38,63 @@ db.serialize(() => {
     data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-    console.log('Database inizializzato correttamente');
+  // Tabella per il profilo fiscale semplificato
+  db.run(`CREATE TABLE IF NOT EXISTS profilo_fiscale (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    aliquota_irpef INTEGER,
+    coefficiente_redditivita INTEGER,
+    gestione_inps TEXT,
+    data_aggiornamento DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Migrazione: aggiorna la tabella profilo_fiscale se ha la struttura vecchia
+  db.all("PRAGMA table_info(profilo_fiscale)", (err, columns) => {
+    if (err) {
+      console.error('Errore nel controllo struttura tabella:', err);
+      return;
+    }
+    
+    const columnNames = columns.map(col => col.name);
+    
+    // Se la tabella ha ancora i campi vecchi, la ricreiamo
+    if (columnNames.includes('tipo_impresa')) {
+      console.log('Migrazione: aggiornamento struttura tabella profilo_fiscale...');
+      
+      // Salva i dati esistenti se ci sono
+      db.all("SELECT * FROM profilo_fiscale", (err, rows) => {
+        if (err) {
+          console.error('Errore nel salvataggio dati esistenti:', err);
+          return;
+        }
+        
+        // Elimina la tabella vecchia
+        db.run("DROP TABLE profilo_fiscale", (err) => {
+          if (err) {
+            console.error('Errore nell\'eliminazione tabella vecchia:', err);
+            return;
+          }
+          
+          // Ricrea la tabella con la nuova struttura
+          db.run(`CREATE TABLE profilo_fiscale (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            aliquota_irpef INTEGER,
+            coefficiente_redditivita INTEGER,
+            gestione_inps TEXT,
+            data_aggiornamento DATETIME DEFAULT CURRENT_TIMESTAMP
+          )`, (err) => {
+            if (err) {
+              console.error('Errore nella creazione tabella nuova:', err);
+              return;
+            }
+            
+            console.log('Migrazione completata: tabella profilo_fiscale aggiornata');
+          });
+        });
+      });
+    }
+  });
+
+  console.log('Database inizializzato correttamente');
 });
 
 module.exports = db;
