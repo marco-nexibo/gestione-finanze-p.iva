@@ -295,6 +295,52 @@ app.get('/api/riepilogo/:anno', (req, res) => {
         });
 });
 
+
+// GET - Ottieni anni disponibili nel database
+app.get('/api/anni-disponibili', (req, res) => {
+    const anni = new Set();
+
+    // Query parallele per ottenere anni da tutte le tabelle
+    const queries = [
+        new Promise((resolve, reject) => {
+            db.all('SELECT DISTINCT anno FROM entrate ORDER BY anno', (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        }),
+        new Promise((resolve, reject) => {
+            db.all('SELECT DISTINCT anno FROM spese ORDER BY anno', (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        }),
+        new Promise((resolve, reject) => {
+            db.all('SELECT DISTINCT anno FROM prelievi ORDER BY anno', (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
+        })
+    ];
+
+    Promise.all(queries)
+        .then(([entrate, spese, prelievi]) => {
+            // Raccoglie tutti gli anni da tutte le tabelle
+            [...entrate, ...spese, ...prelievi].forEach(row => {
+                anni.add(row.anno);
+            });
+
+            // Converte Set in array e ordina
+            const anniArray = Array.from(anni).sort((a, b) => a - b);
+
+            res.json({ anni: anniArray });
+        })
+        .catch(err => {
+            console.error('Errore nel recupero anni disponibili:', err);
+            res.status(500).json({ error: 'Errore nel recupero degli anni disponibili' });
+        });
+});
+
+
 // Avvio server
 app.listen(PORT, () => {
     console.log(`Server avviato sulla porta ${PORT}`);
