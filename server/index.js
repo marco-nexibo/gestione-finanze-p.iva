@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./database');
+const { authenticateToken, optionalAuth } = require('./auth');
+const authRoutes = require('./auth-routes');
 require('dotenv').config();
 
 const app = express();
@@ -10,12 +12,15 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Auth routes (non protette)
+app.use('/api/auth', authRoutes);
+
 // Costanti per calcoli (rimossa - ora usiamo calcoli dinamici)
 
-// ROUTES
+// ROUTES (protette da autenticazione)
 
 // GET - Ottieni dati di un mese specifico
-app.get('/api/mese/:anno/:mese', (req, res) => {
+app.get('/api/mese/:anno/:mese', authenticateToken, (req, res) => {
     const { anno, mese } = req.params;
 
     // Prima ottieni il profilo fiscale, poi i dati del mese
@@ -98,7 +103,7 @@ app.get('/api/mese/:anno/:mese', (req, res) => {
 });
 
 // POST - Aggiungi/Aggiorna entrate mensili
-app.post('/api/entrate', (req, res) => {
+app.post('/api/entrate', authenticateToken, (req, res) => {
     const { mese, anno, importo, descrizione } = req.body;
 
     db.run(
@@ -123,7 +128,7 @@ app.post('/api/entrate', (req, res) => {
 });
 
 // PUT - Modifica entrata esistente
-app.put('/api/entrate/:id', (req, res) => {
+app.put('/api/entrate/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
     const { importo, descrizione } = req.body;
 
@@ -147,7 +152,7 @@ app.put('/api/entrate/:id', (req, res) => {
 });
 
 // POST - Aggiungi spesa
-app.post('/api/spese', (req, res) => {
+app.post('/api/spese', authenticateToken, (req, res) => {
     const { mese, anno, importo, categoria, descrizione } = req.body;
 
     db.run(
@@ -174,7 +179,7 @@ app.post('/api/spese', (req, res) => {
 });
 
 // POST - Aggiungi prelievo/stipendio
-app.post('/api/prelievi', (req, res) => {
+app.post('/api/prelievi', authenticateToken, (req, res) => {
     const { mese, anno, importo, descrizione } = req.body;
 
     db.run(
@@ -200,7 +205,7 @@ app.post('/api/prelievi', (req, res) => {
 });
 
 // DELETE - Elimina spesa
-app.delete('/api/spese/:id', (req, res) => {
+app.delete('/api/spese/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
 
     db.run('DELETE FROM spese WHERE id = ?', [id], function (err) {
@@ -214,7 +219,7 @@ app.delete('/api/spese/:id', (req, res) => {
 });
 
 // DELETE - Elimina prelievo
-app.delete('/api/prelievi/:id', (req, res) => {
+app.delete('/api/prelievi/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
 
     db.run('DELETE FROM prelievi WHERE id = ?', [id], function (err) {
@@ -228,7 +233,7 @@ app.delete('/api/prelievi/:id', (req, res) => {
 });
 
 // DELETE - Elimina singola entrata
-app.delete('/api/entrate/:id', (req, res) => {
+app.delete('/api/entrate/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
 
     db.run('DELETE FROM entrate WHERE id = ?', [id], function (err) {
@@ -242,7 +247,7 @@ app.delete('/api/entrate/:id', (req, res) => {
 });
 
 // GET - Riepilogo annuale
-app.get('/api/riepilogo/:anno', (req, res) => {
+app.get('/api/riepilogo/:anno', authenticateToken, (req, res) => {
     const { anno } = req.params;
 
     // Prima ottieni il profilo fiscale
@@ -321,7 +326,7 @@ app.get('/api/riepilogo/:anno', (req, res) => {
 
 
 // GET - Ottieni anni disponibili nel database
-app.get('/api/anni-disponibili', (req, res) => {
+app.get('/api/anni-disponibili', authenticateToken, (req, res) => {
     const anni = new Set();
 
     // Query parallele per ottenere anni da tutte le tabelle
@@ -439,7 +444,7 @@ function calcolaPercentualiTasse(profiloFiscale, anno) {
 // API per il profilo fiscale
 
 // GET - Ottieni profilo fiscale
-app.get('/api/profilo-fiscale', (req, res) => {
+app.get('/api/profilo-fiscale', authenticateToken, (req, res) => {
     db.get('SELECT * FROM profilo_fiscale ORDER BY data_aggiornamento DESC LIMIT 1', (err, row) => {
         if (err) {
             console.error('Errore nel recupero profilo fiscale:', err);
@@ -455,7 +460,7 @@ app.get('/api/profilo-fiscale', (req, res) => {
 });
 
 // POST - Salva profilo fiscale
-app.post('/api/profilo-fiscale', (req, res) => {
+app.post('/api/profilo-fiscale', authenticateToken, (req, res) => {
     const {
         aliquotaIrpef,
         coefficienteRedditivita,
