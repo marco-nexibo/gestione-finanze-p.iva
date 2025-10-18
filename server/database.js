@@ -77,6 +77,7 @@ db.serialize(() => {
     nome TEXT NOT NULL,
     cognome TEXT NOT NULL,
     role TEXT DEFAULT 'owner',
+    onboarding_completed BOOLEAN DEFAULT FALSE,
     email_verified BOOLEAN DEFAULT FALSE,
     reset_token TEXT,
     reset_token_expires DATETIME,

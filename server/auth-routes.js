@@ -129,6 +129,7 @@ router.post('/login', (req, res) => {
                     cognome: user.cognome,
                     tenant_id: user.tenant_id,
                     role: user.role,
+                    onboarding_completed: user.onboarding_completed,
                     subscription_status: user.subscription_status,
                     subscription_end_date: user.subscription_end_date
                 }
@@ -240,7 +241,7 @@ router.post('/reset-password', async (req, res) => {
 
 // Ottieni profilo utente corrente
 router.get('/profile', authenticateToken, (req, res) => {
-    db.get('SELECT u.id, u.email, u.nome, u.cognome, u.tenant_id, u.role, t.subscription_status, t.subscription_end_date FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.id = ?', [req.user.id], (err, user) => {
+    db.get('SELECT u.id, u.email, u.nome, u.cognome, u.tenant_id, u.role, u.onboarding_completed, t.subscription_status, t.subscription_end_date FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.id = ?', [req.user.id], (err, user) => {
         if (err) {
             console.error('Errore nel recupero profilo:', err);
             return res.status(500).json({ error: 'Errore del server' });
@@ -286,6 +287,54 @@ router.put('/profile', authenticateToken, (req, res) => {
             });
         }
     );
+});
+
+// Completa onboarding
+router.post('/complete-onboarding', authenticateToken, async (req, res) => {
+    const { aliquotaIrpef, coefficienteRedditivita, gestioneInps } = req.body;
+
+    if (!aliquotaIrpef || !coefficienteRedditivita || !gestioneInps) {
+        return res.status(400).json({ error: 'Tutti i campi del profilo fiscale sono obbligatori' });
+    }
+
+    try {
+        // Converte i valori per il database
+        const gestioneInpsDb = gestioneInps === 'artigiani_commercianti' ? 'ordinaria' : 'separata';
+
+        // Prima salva il profilo fiscale
+        const profiloFiscaleQueries = require('./tenant-queries').profiloFiscaleQueries;
+        await profiloFiscaleQueries.insert(req.tenantId, aliquotaIrpef, coefficienteRedditivita, gestioneInpsDb);
+
+        // Poi marca l'onboarding come completato
+        db.run(
+            'UPDATE users SET onboarding_completed = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [req.user.id],
+            function (err) {
+                if (err) {
+                    console.error('Errore nell\'aggiornamento onboarding:', err);
+                    return res.status(500).json({ error: 'Errore nel completamento dell\'onboarding' });
+                }
+
+                res.json({
+                    message: 'Onboarding completato con successo',
+                    onboarding_completed: true
+                });
+            }
+        );
+    } catch (error) {
+        console.error('Errore nel completamento onboarding:', error);
+        res.status(500).json({ error: 'Errore nel completamento dell\'onboarding' });
+    }
+});
+
+// Salta onboarding
+router.post('/skip-onboarding', authenticateToken, (req, res) => {
+    // Non aggiorniamo onboarding_completed - l'utente può accedere temporaneamente
+    // ma l'onboarding rimane incompleto
+    res.json({
+        message: 'Accesso temporaneo consentito',
+        onboarding_completed: false
+    });
 });
 
 // Cambio password
