@@ -3,6 +3,15 @@ const cors = require('cors');
 const db = require('./database');
 const { authenticateToken, optionalAuth } = require('./auth');
 const authRoutes = require('./auth-routes');
+const { requireAdmin, requireOwner, requireFinancialAccess } = require('./middleware/roles');
+const {
+    entrateQueries,
+    speseQueries,
+    prelieviQueries,
+    profiloFiscaleQueries,
+    riepilogoQueries,
+    anniQueries
+} = require('./tenant-queries');
 require('dotenv').config();
 
 const app = express();
@@ -20,111 +29,82 @@ app.use('/api/auth', authRoutes);
 // ROUTES (protette da autenticazione)
 
 // GET - Ottieni dati di un mese specifico
-app.get('/api/mese/:anno/:mese', authenticateToken, (req, res) => {
+app.get('/api/mese/:anno/:mese', authenticateToken, async (req, res) => {
     const { anno, mese } = req.params;
 
-    // Prima ottieni il profilo fiscale, poi i dati del mese
-    db.get('SELECT * FROM profilo_fiscale ORDER BY data_aggiornamento DESC LIMIT 1', (err, profiloFiscale) => {
-        if (err) {
-            console.error('Errore nel recupero profilo fiscale:', err);
-            // Continua con percentuale fissa se errore
-            profiloFiscale = null;
-        }
+    try {
+        // Prima ottieni il profilo fiscale
+        const profiloFiscale = await profiloFiscaleQueries.get(req.tenantId);
 
         // Calcola le percentuali dinamiche
         const calcoliTasse = calcolaPercentualiTasse(profiloFiscale, parseInt(anno));
 
         // Query parallele per ottenere tutti i dati del mese
-        const queries = {
-            entrate: new Promise((resolve, reject) => {
-                db.all('SELECT * FROM entrate WHERE anno = ? AND mese = ?', [anno, mese], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                });
-            }),
-            spese: new Promise((resolve, reject) => {
-                db.all('SELECT * FROM spese WHERE anno = ? AND mese = ?', [anno, mese], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                });
-            }),
-            prelievi: new Promise((resolve, reject) => {
-                db.all('SELECT * FROM prelievi WHERE anno = ? AND mese = ?', [anno, mese], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                });
-            })
-        };
+        const [entrate, spese, prelievi] = await Promise.all([
+            entrateQueries.getByMonth(req.tenantId, anno, mese),
+            speseQueries.getByMonth(req.tenantId, anno, mese),
+            prelieviQueries.getByMonth(req.tenantId, anno, mese)
+        ]);
 
-        Promise.all([queries.entrate, queries.spese, queries.prelievi])
-            .then(([entrate, spese, prelievi]) => {
-                const totaleEntrate = entrate.reduce((sum, entrata) => sum + entrata.importo, 0);
-                const totaleSpese = spese.reduce((sum, spesa) => sum + spesa.importo, 0);
-                const totalePrelievi = prelievi.reduce((sum, prelievo) => sum + prelievo.importo, 0);
+        const totaleEntrate = entrate.reduce((sum, entrata) => sum + entrata.importo, 0);
+        const totaleSpese = spese.reduce((sum, spesa) => sum + spesa.importo, 0);
+        const totalePrelievi = prelievi.reduce((sum, prelievo) => sum + prelievo.importo, 0);
 
-                // Calcoli finanziari con percentuale dinamica
-                const entrateNette = totaleEntrate;
-                const tasseDaPagare = (entrateNette * calcoliTasse.percentualeTasse) / 100;
-                const disponibileDopoTasse = entrateNette - tasseDaPagare;
-                const disponibileDopSpese = disponibileDopoTasse - totaleSpese;
-                const stipendioDisponibile = disponibileDopSpese - totalePrelievi;
+        // Calcoli finanziari con percentuale dinamica
+        const entrateNette = totaleEntrate;
+        const tasseDaPagare = (entrateNette * calcoliTasse.percentualeTasse) / 100;
+        const disponibileDopoTasse = entrateNette - tasseDaPagare;
+        const disponibileDopSpese = disponibileDopoTasse - totaleSpese;
+        const stipendioDisponibile = disponibileDopSpese - totalePrelievi;
 
-                res.json({
-                    mese: parseInt(mese),
-                    anno: parseInt(anno),
-                    entrate: {
-                        lista: entrate,
-                        totale: totaleEntrate
-                    },
-                    spese: {
-                        lista: spese,
-                        totale: totaleSpese
-                    },
-                    prelievi: {
-                        lista: prelievi,
-                        totale: totalePrelievi
-                    },
-                    calcoli: {
-                        entrateNette,
-                        percentualeTasse: calcoliTasse.percentualeTasse,
-                        tasseDaPagare,
-                        disponibileDopoTasse,
-                        disponibileDopSpese,
-                        stipendioDisponibile,
-                        dettaglioTasse: calcoliTasse.dettaglio
-                    }
-                });
-            })
-            .catch(err => {
-                console.error('Errore nel recupero dati:', err);
-                res.status(500).json({ error: 'Errore nel recupero dei dati' });
-            });
-    });
+        res.json({
+            mese: parseInt(mese),
+            anno: parseInt(anno),
+            entrate: {
+                lista: entrate,
+                totale: totaleEntrate
+            },
+            spese: {
+                lista: spese,
+                totale: totaleSpese
+            },
+            prelievi: {
+                lista: prelievi,
+                totale: totalePrelievi
+            },
+            calcoli: {
+                entrateNette,
+                percentualeTasse: calcoliTasse.percentualeTasse,
+                tasseDaPagare,
+                disponibileDopoTasse,
+                disponibileDopSpese,
+                stipendioDisponibile,
+                dettaglioTasse: calcoliTasse.dettaglio
+            }
+        });
+    } catch (err) {
+        console.error('Errore nel recupero dati:', err);
+        res.status(500).json({ error: 'Errore nel recupero dei dati' });
+    }
 });
 
 // POST - Aggiungi/Aggiorna entrate mensili
-app.post('/api/entrate', authenticateToken, (req, res) => {
+app.post('/api/entrate', authenticateToken, async (req, res) => {
     const { mese, anno, importo, descrizione } = req.body;
 
-    db.run(
-        `INSERT INTO entrate (mese, anno, importo, descrizione) 
-     VALUES (?, ?, ?, ?)`,
-        [mese, anno, importo, descrizione || ''],
-        function (err) {
-            if (err) {
-                console.error('Errore inserimento entrate:', err);
-                res.status(500).json({ error: 'Errore nell\'inserimento delle entrate' });
-            } else {
-                res.json({
-                    id: this.lastID,
-                    message: 'Entrate salvate correttamente',
-                    mese,
-                    anno,
-                    importo
-                });
-            }
-        }
-    );
+    try {
+        const result = await entrateQueries.insert(req.tenantId, mese, anno, importo, descrizione);
+        res.json({
+            id: result.id,
+            message: 'Entrate salvate correttamente',
+            mese,
+            anno,
+            importo
+        });
+    } catch (err) {
+        console.error('Errore inserimento entrate:', err);
+        res.status(500).json({ error: 'Errore nell\'inserimento delle entrate' });
+    }
 });
 
 // PUT - Modifica entrata esistente
@@ -497,6 +477,145 @@ app.post('/api/profilo-fiscale', authenticateToken, (req, res) => {
     });
 });
 
+
+// ===== ADMIN ROUTES =====
+
+// GET - Lista tutti i tenant (solo admin)
+app.get('/api/admin/tenants', requireAdmin, (req, res) => {
+    db.all(`
+        SELECT t.*, 
+               COUNT(u.id) as user_count,
+               MAX(u.created_at) as last_user_activity
+        FROM tenants t 
+        LEFT JOIN users u ON t.id = u.tenant_id 
+        GROUP BY t.id 
+        ORDER BY t.created_at DESC
+    `, (err, tenants) => {
+        if (err) {
+            console.error('Errore nel recupero tenant:', err);
+            return res.status(500).json({ error: 'Errore nel recupero dei tenant' });
+        }
+        res.json({ tenants });
+    });
+});
+
+// GET - Dettagli di un tenant specifico (solo admin)
+app.get('/api/admin/tenants/:tenantId', requireAdmin, (req, res) => {
+    const { tenantId } = req.params;
+
+    db.get(`
+        SELECT t.*, 
+               COUNT(u.id) as user_count
+        FROM tenants t 
+        LEFT JOIN users u ON t.id = u.tenant_id 
+        WHERE t.id = ?
+        GROUP BY t.id
+    `, [tenantId], (err, tenant) => {
+        if (err) {
+            console.error('Errore nel recupero tenant:', err);
+            return res.status(500).json({ error: 'Errore nel recupero del tenant' });
+        }
+
+        if (!tenant) {
+            return res.status(404).json({ error: 'Tenant non trovato' });
+        }
+
+        // Ottieni anche gli utenti del tenant
+        db.all('SELECT id, email, nome, cognome, role, created_at FROM users WHERE tenant_id = ?', [tenantId], (err, users) => {
+            if (err) {
+                console.error('Errore nel recupero utenti:', err);
+                return res.status(500).json({ error: 'Errore nel recupero degli utenti' });
+            }
+
+            res.json({
+                tenant: {
+                    ...tenant,
+                    users: users || []
+                }
+            });
+        });
+    });
+});
+
+// PUT - Aggiorna stato abbonamento tenant (solo admin)
+app.put('/api/admin/tenants/:tenantId/subscription', requireAdmin, (req, res) => {
+    const { tenantId } = req.params;
+    const { subscription_status, subscription_end_date, stripe_customer_id, stripe_subscription_id } = req.body;
+
+    db.run(`
+        UPDATE tenants 
+        SET subscription_status = ?, 
+            subscription_end_date = ?, 
+            stripe_customer_id = ?, 
+            stripe_subscription_id = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    `, [subscription_status, subscription_end_date, stripe_customer_id, stripe_subscription_id, tenantId], function (err) {
+        if (err) {
+            console.error('Errore nell\'aggiornamento tenant:', err);
+            return res.status(500).json({ error: 'Errore nell\'aggiornamento del tenant' });
+        }
+
+        if (this.changes === 0) {
+            return res.status(404).json({ error: 'Tenant non trovato' });
+        }
+
+        res.json({
+            message: 'Stato abbonamento aggiornato con successo',
+            tenant_id: tenantId,
+            subscription_status,
+            subscription_end_date
+        });
+    });
+});
+
+// GET - Statistiche generali (solo admin)
+app.get('/api/admin/stats', requireAdmin, (req, res) => {
+    const queries = {
+        totalTenants: new Promise((resolve, reject) => {
+            db.get('SELECT COUNT(*) as count FROM tenants', (err, row) => {
+                if (err) reject(err);
+                else resolve(row.count);
+            });
+        }),
+        activeSubscriptions: new Promise((resolve, reject) => {
+            db.get('SELECT COUNT(*) as count FROM tenants WHERE subscription_status = "active"', (err, row) => {
+                if (err) reject(err);
+                else resolve(row.count);
+            });
+        }),
+        trialSubscriptions: new Promise((resolve, reject) => {
+            db.get('SELECT COUNT(*) as count FROM tenants WHERE subscription_status = "trial"', (err, row) => {
+                if (err) reject(err);
+                else resolve(row.count);
+            });
+        }),
+        totalUsers: new Promise((resolve, reject) => {
+            db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
+                if (err) reject(err);
+                else resolve(row.count);
+            });
+        })
+    };
+
+    Promise.all([
+        queries.totalTenants,
+        queries.activeSubscriptions,
+        queries.trialSubscriptions,
+        queries.totalUsers
+    ]).then(([totalTenants, activeSubscriptions, trialSubscriptions, totalUsers]) => {
+        res.json({
+            totalTenants,
+            activeSubscriptions,
+            trialSubscriptions,
+            expiredSubscriptions: totalTenants - activeSubscriptions - trialSubscriptions,
+            totalUsers
+        });
+    }).catch(err => {
+        console.error('Errore nel recupero statistiche:', err);
+        res.status(500).json({ error: 'Errore nel recupero delle statistiche' });
+    });
+});
 
 // Avvio server
 app.listen(PORT, () => {

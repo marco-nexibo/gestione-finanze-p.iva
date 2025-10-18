@@ -10,55 +10,79 @@ db.serialize(() => {
   // Tabella per le entrate mensili
   db.run(`CREATE TABLE IF NOT EXISTS entrate (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL,
     mese INTEGER NOT NULL,
     anno INTEGER NOT NULL,
     importo REAL NOT NULL,
     descrizione TEXT,
-    data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP
+    data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES tenants (id)
   )`);
 
   // Tabella per le spese mensili
   db.run(`CREATE TABLE IF NOT EXISTS spese (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL,
     mese INTEGER NOT NULL,
     anno INTEGER NOT NULL,
     importo REAL NOT NULL,
     categoria TEXT,
     descrizione TEXT,
-    data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP
+    data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES tenants (id)
   )`);
 
   // Tabella per i prelievi/stipendi
   db.run(`CREATE TABLE IF NOT EXISTS prelievi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL,
     mese INTEGER NOT NULL,
     anno INTEGER NOT NULL,
     importo REAL NOT NULL,
     descrizione TEXT,
-    data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP
+    data_inserimento DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES tenants (id)
   )`);
 
   // Tabella per il profilo fiscale semplificato
   db.run(`CREATE TABLE IF NOT EXISTS profilo_fiscale (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL,
     aliquota_irpef INTEGER,
     coefficiente_redditivita INTEGER,
     gestione_inps TEXT,
-    data_aggiornamento DATETIME DEFAULT CURRENT_TIMESTAMP
+    data_aggiornamento DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES tenants (id)
   )`);
 
-  // Tabella per gli utenti
+  // Tabella per i tenant (clienti)
+  db.run(`CREATE TABLE IF NOT EXISTS tenants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    subscription_status TEXT DEFAULT 'trial',
+    subscription_end_date DATETIME,
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Tabella per gli utenti (ora collegata ai tenant)
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     nome TEXT NOT NULL,
     cognome TEXT NOT NULL,
+    role TEXT DEFAULT 'owner',
     email_verified BOOLEAN DEFAULT FALSE,
     reset_token TEXT,
     reset_token_expires DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES tenants (id)
   )`);
 
   // Collegamento utenti ai dati finanziari (per futura espansione multi-utente)
@@ -70,47 +94,44 @@ db.serialize(() => {
     FOREIGN KEY (user_id) REFERENCES users (id)
   )`);
 
-  // Migrazione: aggiorna la tabella profilo_fiscale se ha la struttura vecchia
-  db.all("PRAGMA table_info(profilo_fiscale)", (err, columns) => {
+  // Migrazione: aggiungi tenant_id alle tabelle esistenti
+  db.all("PRAGMA table_info(entrate)", (err, columns) => {
     if (err) {
-      console.error('Errore nel controllo struttura tabella:', err);
+      console.error('Errore nel controllo struttura tabella entrate:', err);
       return;
     }
 
     const columnNames = columns.map(col => col.name);
 
-    // Se la tabella ha ancora i campi vecchi, la ricreiamo
-    if (columnNames.includes('tipo_impresa')) {
-      console.log('Migrazione: aggiornamento struttura tabella profilo_fiscale...');
+    // Se la tabella non ha tenant_id, aggiungilo
+    if (!columnNames.includes('tenant_id')) {
+      console.log('Migrazione: aggiunta tenant_id alle tabelle esistenti...');
 
-      // Salva i dati esistenti se ci sono
-      db.all("SELECT * FROM profilo_fiscale", (err, rows) => {
+      // Crea un tenant di default per i dati esistenti
+      db.run(`INSERT INTO tenants (name, email, subscription_status) VALUES ('Default Tenant', 'default@forfettapp.com', 'active')`, function (err) {
         if (err) {
-          console.error('Errore nel salvataggio dati esistenti:', err);
+          console.error('Errore nella creazione tenant di default:', err);
           return;
         }
 
-        // Elimina la tabella vecchia
-        db.run("DROP TABLE profilo_fiscale", (err) => {
-          if (err) {
-            console.error('Errore nell\'eliminazione tabella vecchia:', err);
-            return;
-          }
+        const defaultTenantId = this.lastID;
+        console.log('Creato tenant di default con ID:', defaultTenantId);
 
-          // Ricrea la tabella con la nuova struttura
-          db.run(`CREATE TABLE profilo_fiscale (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            aliquota_irpef INTEGER,
-            coefficiente_redditivita INTEGER,
-            gestione_inps TEXT,
-            data_aggiornamento DATETIME DEFAULT CURRENT_TIMESTAMP
-          )`, (err) => {
+        // Aggiungi tenant_id alle tabelle esistenti
+        const tables = ['entrate', 'spese', 'prelievi', 'profilo_fiscale'];
+        let completed = 0;
+
+        tables.forEach(table => {
+          db.run(`ALTER TABLE ${table} ADD COLUMN tenant_id INTEGER DEFAULT ${defaultTenantId}`, (err) => {
             if (err) {
-              console.error('Errore nella creazione tabella nuova:', err);
-              return;
+              console.error(`Errore nell'aggiunta tenant_id a ${table}:`, err);
+            } else {
+              console.log(`Aggiunto tenant_id a ${table}`);
             }
-
-            console.log('Migrazione completata: tabella profilo_fiscale aggiornata');
+            completed++;
+            if (completed === tables.length) {
+              console.log('Migrazione completata: tutte le tabelle aggiornate con tenant_id');
+            }
           });
         });
       });

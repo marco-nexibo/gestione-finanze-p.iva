@@ -35,29 +35,51 @@ router.post('/register', async (req, res) => {
             }
 
             try {
-                // Hash password e crea utente
+                // Hash password
                 const passwordHash = await hashPassword(password);
 
+                // Prima crea il tenant
                 db.run(
-                    'INSERT INTO users (email, password_hash, nome, cognome) VALUES (?, ?, ?, ?)',
-                    [email.toLowerCase(), passwordHash, nome.trim(), cognome.trim()],
+                    'INSERT INTO tenants (name, email, subscription_status, subscription_end_date) VALUES (?, ?, ?, ?)',
+                    [nome.trim() + ' ' + cognome.trim(), email.toLowerCase(), 'trial', new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)], // 14 giorni di trial
                     function (err) {
                         if (err) {
-                            console.error('Errore nella registrazione:', err);
+                            console.error('Errore nella creazione tenant:', err);
                             return res.status(500).json({ error: 'Errore nella registrazione' });
                         }
 
-                        const token = generateToken({ id: this.lastID, email: email.toLowerCase() });
-                        res.json({
-                            message: 'Registrazione completata con successo',
-                            token,
-                            user: {
-                                id: this.lastID,
-                                email: email.toLowerCase(),
-                                nome: nome.trim(),
-                                cognome: cognome.trim()
+                        const tenantId = this.lastID;
+
+                        // Poi crea l'utente collegato al tenant
+                        db.run(
+                            'INSERT INTO users (tenant_id, email, password_hash, nome, cognome, role) VALUES (?, ?, ?, ?, ?, ?)',
+                            [tenantId, email.toLowerCase(), passwordHash, nome.trim(), cognome.trim(), 'owner'],
+                            function (err) {
+                                if (err) {
+                                    console.error('Errore nella registrazione utente:', err);
+                                    return res.status(500).json({ error: 'Errore nella registrazione' });
+                                }
+
+                                const token = generateToken({
+                                    id: this.lastID,
+                                    email: email.toLowerCase(),
+                                    tenant_id: tenantId
+                                });
+
+                                res.json({
+                                    message: 'Registrazione completata con successo',
+                                    token,
+                                    user: {
+                                        id: this.lastID,
+                                        email: email.toLowerCase(),
+                                        nome: nome.trim(),
+                                        cognome: cognome.trim(),
+                                        tenant_id: tenantId,
+                                        role: 'owner'
+                                    }
+                                });
                             }
-                        });
+                        );
                     }
                 );
             } catch (hashError) {
@@ -79,7 +101,7 @@ router.post('/login', (req, res) => {
         return res.status(400).json({ error: 'Email e password sono obbligatorie' });
     }
 
-    db.get('SELECT * FROM users WHERE email = ?', [email.toLowerCase()], async (err, user) => {
+    db.get('SELECT u.*, t.subscription_status, t.subscription_end_date FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.email = ?', [email.toLowerCase()], async (err, user) => {
         if (err) {
             console.error('Errore nel recupero utente:', err);
             return res.status(500).json({ error: 'Errore del server' });
@@ -104,7 +126,11 @@ router.post('/login', (req, res) => {
                     id: user.id,
                     email: user.email,
                     nome: user.nome,
-                    cognome: user.cognome
+                    cognome: user.cognome,
+                    tenant_id: user.tenant_id,
+                    role: user.role,
+                    subscription_status: user.subscription_status,
+                    subscription_end_date: user.subscription_end_date
                 }
             });
         } catch (error) {
@@ -214,7 +240,7 @@ router.post('/reset-password', async (req, res) => {
 
 // Ottieni profilo utente corrente
 router.get('/profile', authenticateToken, (req, res) => {
-    db.get('SELECT id, email, nome, cognome FROM users WHERE id = ?', [req.user.id], (err, user) => {
+    db.get('SELECT u.id, u.email, u.nome, u.cognome, u.tenant_id, u.role, t.subscription_status, t.subscription_end_date FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.id = ?', [req.user.id], (err, user) => {
         if (err) {
             console.error('Errore nel recupero profilo:', err);
             return res.status(500).json({ error: 'Errore del server' });
