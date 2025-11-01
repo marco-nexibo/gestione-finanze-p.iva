@@ -162,11 +162,11 @@ const Dashboard: React.FC<DashboardProps> = ({ meseSelezionato, annoSelezionato,
                             </div>
                             <div className="flex justify-between">
                                 <span>• IRPEF ({calcoli.dettaglioTasse.irpef}%):</span>
-                                <span>{formatCurrency(((dati.entrate.totale * calcoli.dettaglioTasse.coefficiente) / 100 * calcoli.dettaglioTasse.irpef) / 100)}</span>
+                                <span>{formatCurrency(dati.entrate.totale * calcoli.dettaglioTasse.irpef / 100)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span>• INPS ({calcoli.dettaglioTasse.inps}%):</span>
-                                <span>{formatCurrency(((dati.entrate.totale * calcoli.dettaglioTasse.coefficiente) / 100 * calcoli.dettaglioTasse.inps) / 100)}</span>
+                                <span>{formatCurrency(dati.entrate.totale * calcoli.dettaglioTasse.inps / 100)}</span>
                             </div>
                         </div>
                     )}

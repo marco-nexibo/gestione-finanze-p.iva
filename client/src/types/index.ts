@@ -76,6 +76,12 @@ export interface RiepilogoAnnuale {
     tasse: number;
     stipendioDisponibile: number;
   };
+  dettaglioTasse?: {
+    irpef: number;
+    inps: number;
+    coefficiente: number;
+    redditoImponibile: number;
+  };
 }
 
 // Tipi per il profilo fiscale semplificato

@@ -108,245 +108,171 @@ app.post('/api/entrate', authenticateToken, async (req, res) => {
 });
 
 // PUT - Modifica entrata esistente
-app.put('/api/entrate/:id', authenticateToken, (req, res) => {
+app.put('/api/entrate/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { importo, descrizione } = req.body;
 
-    db.run(
-        `UPDATE entrate SET importo = ?, descrizione = ? WHERE id = ?`,
-        [importo, descrizione || '', id],
-        function (err) {
-            if (err) {
-                console.error('Errore modifica entrata:', err);
-                res.status(500).json({ error: 'Errore nella modifica dell\'entrata' });
-            } else {
-                res.json({
-                    message: 'Entrata modificata correttamente',
-                    id: parseInt(id),
-                    importo,
-                    descrizione
-                });
-            }
-        }
-    );
+    try {
+        const result = await entrateQueries.update(req.tenantId, id, importo, descrizione);
+        res.json({
+            message: 'Entrata modificata correttamente',
+            id: parseInt(id),
+            importo,
+            descrizione
+        });
+    } catch (err) {
+        console.error('Errore modifica entrata:', err);
+        res.status(500).json({ error: 'Errore nella modifica dell\'entrata' });
+    }
 });
 
 // POST - Aggiungi spesa
-app.post('/api/spese', authenticateToken, (req, res) => {
+app.post('/api/spese', authenticateToken, async (req, res) => {
     const { mese, anno, importo, categoria, descrizione } = req.body;
 
-    db.run(
-        `INSERT INTO spese (mese, anno, importo, categoria, descrizione) 
-     VALUES (?, ?, ?, ?, ?)`,
-        [mese, anno, importo, categoria || '', descrizione || ''],
-        function (err) {
-            if (err) {
-                console.error('Errore inserimento spesa:', err);
-                res.status(500).json({ error: 'Errore nell\'inserimento della spesa' });
-            } else {
-                res.json({
-                    id: this.lastID,
-                    message: 'Spesa salvata correttamente',
-                    mese,
-                    anno,
-                    importo,
-                    categoria,
-                    descrizione
-                });
-            }
-        }
-    );
+    try {
+        const result = await speseQueries.insert(req.tenantId, mese, anno, importo, categoria, descrizione);
+        res.json({
+            id: result.id,
+            message: 'Spesa salvata correttamente',
+            mese,
+            anno,
+            importo,
+            categoria,
+            descrizione
+        });
+    } catch (err) {
+        console.error('Errore inserimento spesa:', err);
+        res.status(500).json({ error: 'Errore nell\'inserimento della spesa' });
+    }
 });
 
 // POST - Aggiungi prelievo/stipendio
-app.post('/api/prelievi', authenticateToken, (req, res) => {
+app.post('/api/prelievi', authenticateToken, async (req, res) => {
     const { mese, anno, importo, descrizione } = req.body;
 
-    db.run(
-        `INSERT INTO prelievi (mese, anno, importo, descrizione) 
-     VALUES (?, ?, ?, ?)`,
-        [mese, anno, importo, descrizione || ''],
-        function (err) {
-            if (err) {
-                console.error('Errore inserimento prelievo:', err);
-                res.status(500).json({ error: 'Errore nell\'inserimento del prelievo' });
-            } else {
-                res.json({
-                    id: this.lastID,
-                    message: 'Prelievo salvato correttamente',
-                    mese,
-                    anno,
-                    importo,
-                    descrizione
-                });
-            }
-        }
-    );
+    try {
+        const result = await prelieviQueries.insert(req.tenantId, mese, anno, importo, descrizione);
+        res.json({
+            id: result.id,
+            message: 'Prelievo salvato correttamente',
+            mese,
+            anno,
+            importo,
+            descrizione
+        });
+    } catch (err) {
+        console.error('Errore inserimento prelievo:', err);
+        res.status(500).json({ error: 'Errore nell\'inserimento del prelievo' });
+    }
 });
 
 // DELETE - Elimina spesa
-app.delete('/api/spese/:id', authenticateToken, (req, res) => {
+app.delete('/api/spese/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
 
-    db.run('DELETE FROM spese WHERE id = ?', [id], function (err) {
-        if (err) {
-            console.error('Errore eliminazione spesa:', err);
-            res.status(500).json({ error: 'Errore nell\'eliminazione della spesa' });
-        } else {
-            res.json({ message: 'Spesa eliminata correttamente' });
-        }
-    });
+    try {
+        const result = await speseQueries.delete(req.tenantId, id);
+        res.json({ message: 'Spesa eliminata correttamente' });
+    } catch (err) {
+        console.error('Errore eliminazione spesa:', err);
+        res.status(500).json({ error: 'Errore nell\'eliminazione della spesa' });
+    }
 });
 
 // DELETE - Elimina prelievo
-app.delete('/api/prelievi/:id', authenticateToken, (req, res) => {
+app.delete('/api/prelievi/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
 
-    db.run('DELETE FROM prelievi WHERE id = ?', [id], function (err) {
-        if (err) {
-            console.error('Errore eliminazione prelievo:', err);
-            res.status(500).json({ error: 'Errore nell\'eliminazione del prelievo' });
-        } else {
-            res.json({ message: 'Prelievo eliminato correttamente' });
-        }
-    });
+    try {
+        const result = await prelieviQueries.delete(req.tenantId, id);
+        res.json({ message: 'Prelievo eliminato correttamente' });
+    } catch (err) {
+        console.error('Errore eliminazione prelievo:', err);
+        res.status(500).json({ error: 'Errore nell\'eliminazione del prelievo' });
+    }
 });
 
 // DELETE - Elimina singola entrata
-app.delete('/api/entrate/:id', authenticateToken, (req, res) => {
+app.delete('/api/entrate/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
 
-    db.run('DELETE FROM entrate WHERE id = ?', [id], function (err) {
-        if (err) {
-            console.error('Errore eliminazione entrata:', err);
-            res.status(500).json({ error: 'Errore nell\'eliminazione dell\'entrata' });
-        } else {
-            res.json({ message: 'Entrata eliminata correttamente' });
-        }
-    });
+    try {
+        const result = await entrateQueries.delete(req.tenantId, id);
+        res.json({ message: 'Entrata eliminata correttamente' });
+    } catch (err) {
+        console.error('Errore eliminazione entrata:', err);
+        res.status(500).json({ error: 'Errore nell\'eliminazione dell\'entrata' });
+    }
 });
 
 // GET - Riepilogo annuale
-app.get('/api/riepilogo/:anno', authenticateToken, (req, res) => {
+app.get('/api/riepilogo/:anno', authenticateToken, async (req, res) => {
     const { anno } = req.params;
 
-    // Prima ottieni il profilo fiscale
-    db.get('SELECT * FROM profilo_fiscale ORDER BY data_aggiornamento DESC LIMIT 1', (err, profiloFiscale) => {
-        if (err) {
-            console.error('Errore nel recupero profilo fiscale:', err);
-            profiloFiscale = null;
-        }
+    try {
+        // Prima ottieni il profilo fiscale
+        const profiloFiscale = await profiloFiscaleQueries.get(req.tenantId);
 
         // Calcola le percentuali dinamiche
         const calcoliTasse = calcolaPercentualiTasse(profiloFiscale, parseInt(anno));
 
-        const queries = {
-            entrate: new Promise((resolve, reject) => {
-                db.all('SELECT mese, SUM(importo) as totale FROM entrate WHERE anno = ? GROUP BY mese ORDER BY mese', [anno], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                });
-            }),
-            spese: new Promise((resolve, reject) => {
-                db.all('SELECT mese, SUM(importo) as totale FROM spese WHERE anno = ? GROUP BY mese ORDER BY mese', [anno], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                });
-            }),
-            prelievi: new Promise((resolve, reject) => {
-                db.all('SELECT mese, SUM(importo) as totale FROM prelievi WHERE anno = ? GROUP BY mese ORDER BY mese', [anno], (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows || []);
-                });
-            })
-        };
+        // Query parallele usando le helper queries
+        const [entrate, spese, prelievi] = await Promise.all([
+            riepilogoQueries.getEntrateByYear(req.tenantId, anno),
+            riepilogoQueries.getSpeseByYear(req.tenantId, anno),
+            riepilogoQueries.getPrelieviByYear(req.tenantId, anno)
+        ]);
 
-        Promise.all([queries.entrate, queries.spese, queries.prelievi])
-            .then(([entrate, spese, prelievi]) => {
-                const riepilogo = [];
+        const riepilogo = [];
 
-                for (let mese = 1; mese <= 12; mese++) {
-                    const entrataDelMese = entrate.find(e => e.mese === mese)?.totale || 0;
-                    const spesaDelMese = spese.find(s => s.mese === mese)?.totale || 0;
-                    const prelieviDelMese = prelievi.find(p => p.mese === mese)?.totale || 0;
+        for (let mese = 1; mese <= 12; mese++) {
+            const entrataDelMese = entrate.find(e => e.mese === mese)?.totale || 0;
+            const spesaDelMese = spese.find(s => s.mese === mese)?.totale || 0;
+            const prelieviDelMese = prelievi.find(p => p.mese === mese)?.totale || 0;
 
-                    const tasseDaPagare = (entrataDelMese * calcoliTasse.percentualeTasse) / 100;
-                    const disponibileDopTasse = entrataDelMese - tasseDaPagare;
-                    const stipendioDisponibile = disponibileDopTasse - spesaDelMese - prelieviDelMese;
+            const tasseDaPagare = (entrataDelMese * calcoliTasse.percentualeTasse) / 100;
+            const disponibileDopTasse = entrataDelMese - tasseDaPagare;
+            const stipendioDisponibile = disponibileDopTasse - spesaDelMese - prelieviDelMese;
 
-                    riepilogo.push({
-                        mese,
-                        entrate: entrataDelMese,
-                        spese: spesaDelMese,
-                        prelievi: prelieviDelMese,
-                        tasse: tasseDaPagare,
-                        stipendioDisponibile
-                    });
-                }
-
-                res.json({
-                    anno: parseInt(anno),
-                    riepilogo,
-                    totali: {
-                        entrate: riepilogo.reduce((sum, m) => sum + m.entrate, 0),
-                        spese: riepilogo.reduce((sum, m) => sum + m.spese, 0),
-                        prelievi: riepilogo.reduce((sum, m) => sum + m.prelievi, 0),
-                        tasse: riepilogo.reduce((sum, m) => sum + m.tasse, 0),
-                        stipendioDisponibile: riepilogo.reduce((sum, m) => sum + m.stipendioDisponibile, 0)
-                    },
-                    dettaglioTasse: calcoliTasse.dettaglio
-                });
-            })
-            .catch(err => {
-                console.error('Errore nel riepilogo annuale:', err);
-                res.status(500).json({ error: 'Errore nel calcolo del riepilogo annuale' });
+            riepilogo.push({
+                mese,
+                entrate: entrataDelMese,
+                spese: spesaDelMese,
+                prelievi: prelieviDelMese,
+                tasse: tasseDaPagare,
+                stipendioDisponibile
             });
-    });
+        }
+
+        res.json({
+            anno: parseInt(anno),
+            riepilogo,
+            totali: {
+                entrate: riepilogo.reduce((sum, m) => sum + m.entrate, 0),
+                spese: riepilogo.reduce((sum, m) => sum + m.spese, 0),
+                prelievi: riepilogo.reduce((sum, m) => sum + m.prelievi, 0),
+                tasse: riepilogo.reduce((sum, m) => sum + m.tasse, 0),
+                stipendioDisponibile: riepilogo.reduce((sum, m) => sum + m.stipendioDisponibile, 0)
+            },
+            dettaglioTasse: calcoliTasse.dettaglio
+        });
+    } catch (err) {
+        console.error('Errore nel riepilogo annuale:', err);
+        res.status(500).json({ error: 'Errore nel calcolo del riepilogo annuale' });
+    }
 });
 
 
 // GET - Ottieni anni disponibili nel database
-app.get('/api/anni-disponibili', authenticateToken, (req, res) => {
-    const anni = new Set();
-
-    // Query parallele per ottenere anni da tutte le tabelle
-    const queries = [
-        new Promise((resolve, reject) => {
-            db.all('SELECT DISTINCT anno FROM entrate ORDER BY anno', (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
-        }),
-        new Promise((resolve, reject) => {
-            db.all('SELECT DISTINCT anno FROM spese ORDER BY anno', (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
-        }),
-        new Promise((resolve, reject) => {
-            db.all('SELECT DISTINCT anno FROM prelievi ORDER BY anno', (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
-        })
-    ];
-
-    Promise.all(queries)
-        .then(([entrate, spese, prelievi]) => {
-            // Raccoglie tutti gli anni da tutte le tabelle
-            [...entrate, ...spese, ...prelievi].forEach(row => {
-                anni.add(row.anno);
-            });
-
-            // Converte Set in array e ordina
-            const anniArray = Array.from(anni).sort((a, b) => a - b);
-
-            res.json({ anni: anniArray });
-        })
-        .catch(err => {
-            console.error('Errore nel recupero anni disponibili:', err);
-            res.status(500).json({ error: 'Errore nel recupero degli anni disponibili' });
-        });
+app.get('/api/anni-disponibili', authenticateToken, async (req, res) => {
+    try {
+        const anni = await anniQueries.getAvailableYears(req.tenantId);
+        res.json({ anni });
+    } catch (err) {
+        console.error('Errore nel recupero anni disponibili:', err);
+        res.status(500).json({ error: 'Errore nel recupero degli anni disponibili' });
+    }
 });
 
 // Funzione per caricare i dati normativi annuali
@@ -405,16 +331,28 @@ function calcolaPercentualiTasse(profiloFiscale, anno) {
     const irpef = profiloFiscale.aliquota_irpef; // 5 o 15
     const inps = datiNormativi[profiloFiscale.gestione_inps]?.aliquota_inps || 24;
 
-    // Calcolo percentuale effettiva
-    // La percentuale si applica al reddito imponibile (fatturato * coefficiente)
-    // Quindi: (irpef + inps) * coefficiente / 100
-    const percentualeTasse = ((irpef + inps) * coefficiente) / 100;
+    // Calcolo percentuale effettiva CORRETTO
+    // Nel regime forfettario:
+    // 1. Si applica il coefficiente al reddito
+    // 2. Si sottraggono i contributi INPS
+    // 3. Si applica l'IRPEF sul reddito già ridotto
+    // 
+    // Formula: Coeff × [INPS + (1 - INPS) × IRPEF] / 100
+    const inpsDec = inps / 100;
+    const irpefDec = irpef / 100;
+    const percentualeTasse = coefficiente * (inpsDec + (1 - inpsDec) * irpefDec);
+
+    // Calcolo percentuali effettive per il display
+    // INPS si calcola sul reddito imponibile totale
+    const inpsEffettivo = coefficiente * inpsDec;
+    // IRPEF si calcola sul reddito imponibile ridotto dell'INPS
+    const irpefEffettivo = coefficiente * (1 - inpsDec) * irpefDec;
 
     return {
         percentualeTasse: Math.round(percentualeTasse * 100) / 100, // Arrotondato a 2 decimali
         dettaglio: {
-            irpef,
-            inps,
+            irpef: Math.round(irpefEffettivo * 100) / 100,      // Percentuale IRPEF effettiva sul fatturato
+            inps: Math.round(inpsEffettivo * 100) / 100,        // Percentuale INPS effettiva sul fatturato
             coefficiente,
             redditoImponibile: coefficiente
         }
@@ -424,57 +362,44 @@ function calcolaPercentualiTasse(profiloFiscale, anno) {
 // API per il profilo fiscale
 
 // GET - Ottieni profilo fiscale
-app.get('/api/profilo-fiscale', authenticateToken, (req, res) => {
-    db.get('SELECT * FROM profilo_fiscale ORDER BY data_aggiornamento DESC LIMIT 1', (err, row) => {
-        if (err) {
-            console.error('Errore nel recupero profilo fiscale:', err);
-            res.status(500).json({ error: 'Errore nel recupero del profilo fiscale' });
-        } else {
-            res.json(row || {
-                aliquota_irpef: null,
-                coefficiente_redditivita: null,
-                gestione_inps: null
-            });
-        }
-    });
+app.get('/api/profilo-fiscale', authenticateToken, async (req, res) => {
+    try {
+        const profilo = await profiloFiscaleQueries.get(req.tenantId);
+        res.json(profilo || {
+            aliquota_irpef: null,
+            coefficiente_redditivita: null,
+            gestione_inps: null
+        });
+    } catch (err) {
+        console.error('Errore nel recupero profilo fiscale:', err);
+        res.status(500).json({ error: 'Errore nel recupero del profilo fiscale' });
+    }
 });
 
 // POST - Salva profilo fiscale
-app.post('/api/profilo-fiscale', authenticateToken, (req, res) => {
+app.post('/api/profilo-fiscale', authenticateToken, async (req, res) => {
     const {
         aliquotaIrpef,
         coefficienteRedditivita,
         gestioneInps
     } = req.body;
 
-    // Prima elimina il profilo esistente (ne teniamo solo uno)
-    db.run('DELETE FROM profilo_fiscale', (err) => {
-        if (err) {
-            console.error('Errore nell\'eliminazione profilo esistente:', err);
-            res.status(500).json({ error: 'Errore nel salvataggio del profilo fiscale' });
-            return;
-        }
-
-        // Inserisci il nuovo profilo
-        db.run(
-            `INSERT INTO profilo_fiscale 
-             (aliquota_irpef, coefficiente_redditivita, gestione_inps) 
-             VALUES (?, ?, ?)`,
-            [aliquotaIrpef, coefficienteRedditivita, gestioneInps],
-            function (err) {
-                if (err) {
-                    console.error('Errore nel salvataggio profilo fiscale:', err);
-                    res.status(500).json({ error: 'Errore nel salvataggio del profilo fiscale' });
-                } else {
-                    res.json({
-                        success: true,
-                        message: 'Profilo fiscale salvato correttamente',
-                        id: this.lastID
-                    });
-                }
-            }
-        );
-    });
+    try {
+        // Convert gestioneInps from frontend format to backend format
+        const gestioneInpsDb = gestioneInps === 'artigiani_commercianti' ? 'ordinaria' : 'separata';
+        
+        // Use the helper query which handles tenant_id automatically
+        const result = await profiloFiscaleQueries.insert(req.tenantId, aliquotaIrpef, coefficienteRedditivita, gestioneInpsDb);
+        
+        res.json({
+            success: true,
+            message: 'Profilo fiscale salvato correttamente',
+            id: result.id
+        });
+    } catch (err) {
+        console.error('Errore nel salvataggio profilo fiscale:', err);
+        res.status(500).json({ error: 'Errore nel salvataggio del profilo fiscale' });
+    }
 });
 
 

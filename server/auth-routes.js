@@ -386,7 +386,7 @@ router.post('/reset-password', async (req, res) => {
 
 // Ottieni profilo utente corrente
 router.get('/profile', authenticateToken, (req, res) => {
-    db.get('SELECT u.id, u.email, u.nome, u.cognome, u.tenant_id, u.role, u.onboarding_completed, t.subscription_status, t.subscription_end_date FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.id = ?', [req.user.id], (err, user) => {
+    db.get('SELECT u.id, u.email, u.nome, u.cognome, u.tenant_id, u.role, u.onboarding_completed, u.email_verified, t.subscription_status, t.subscription_end_date FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.id = ?', [req.user.id], (err, user) => {
         if (err) {
             console.error('Errore nel recupero profilo:', err);
             return res.status(500).json({ error: 'Errore del server' });
@@ -529,6 +529,98 @@ router.put('/change-password', authenticateToken, async (req, res) => {
             );
         } catch (error) {
             console.error('Errore nella verifica/hash password:', error);
+            res.status(500).json({ error: 'Errore del server' });
+        }
+    });
+});
+
+// Elimina account
+router.delete('/delete-account', authenticateToken, async (req, res) => {
+    const { password } = req.body;
+
+    // Verifica password
+    db.get('SELECT password_hash, email_verified FROM users WHERE id = ?', [req.user.id], async (err, user) => {
+        if (err) {
+            console.error('Errore nel recupero password utente:', err);
+            return res.status(500).json({ error: 'Errore del server' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        // Controlla se è un utente Google (email_verified = true)
+        const isGoogleUser = user.email_verified === true || user.email_verified === 1;
+
+        try {
+            // Se non è un utente Google, richiedi la password
+            if (!isGoogleUser) {
+                if (!password) {
+                    return res.status(400).json({ error: 'Password obbligatoria per eliminare l\'account' });
+                }
+
+                const isValidPassword = await comparePassword(password, user.password_hash);
+
+                if (!isValidPassword) {
+                    return res.status(401).json({ error: 'Password non corretta' });
+                }
+            }
+
+            // Ottieni tenant_id prima di eliminare
+            db.get('SELECT tenant_id FROM users WHERE id = ?', [req.user.id], (err, userData) => {
+                if (err) {
+                    console.error('Errore nel recupero tenant_id:', err);
+                    return res.status(500).json({ error: 'Errore del server' });
+                }
+
+                const tenantId = userData.tenant_id;
+
+                // Elimina tutti i dati del tenant in ordine (per gestire foreign keys)
+                // 1. Elimina profilo fiscale
+                db.run('DELETE FROM profilo_fiscale WHERE tenant_id = ?', [tenantId], (err) => {
+                    if (err) console.error('Errore eliminazione profilo fiscale:', err);
+
+                    // 2. Elimina entrate
+                    db.run('DELETE FROM entrate WHERE tenant_id = ?', [tenantId], (err) => {
+                        if (err) console.error('Errore eliminazione entrate:', err);
+
+                        // 3. Elimina spese
+                        db.run('DELETE FROM spese WHERE tenant_id = ?', [tenantId], (err) => {
+                            if (err) console.error('Errore eliminazione spese:', err);
+
+                            // 4. Elimina prelievi
+                            db.run('DELETE FROM prelievi WHERE tenant_id = ?', [tenantId], (err) => {
+                                if (err) console.error('Errore eliminazione prelievi:', err);
+
+                                // 5. Elimina user_data_access (se esistono)
+                                db.run('DELETE FROM user_data_access WHERE user_id = ?', [req.user.id], (err) => {
+                                    if (err) console.error('Errore eliminazione user_data_access:', err);
+
+                                    // 6. Elimina tutti gli utenti del tenant
+                                    db.run('DELETE FROM users WHERE tenant_id = ?', [tenantId], (err) => {
+                                        if (err) {
+                                            console.error('Errore eliminazione utenti:', err);
+                                            return res.status(500).json({ error: 'Errore nell\'eliminazione degli utenti' });
+                                        }
+
+                                        // 7. Infine elimina il tenant
+                                        db.run('DELETE FROM tenants WHERE id = ?', [tenantId], (err) => {
+                                            if (err) {
+                                                console.error('Errore eliminazione tenant:', err);
+                                                return res.status(500).json({ error: 'Errore nell\'eliminazione del tenant' });
+                                            }
+
+                                            res.json({ message: 'Account eliminato con successo' });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        } catch (error) {
+            console.error('Errore nella verifica password:', error);
             res.status(500).json({ error: 'Errore del server' });
         }
     });

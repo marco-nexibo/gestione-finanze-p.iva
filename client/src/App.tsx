@@ -396,7 +396,7 @@ function AppContent() {
                 meseSelezionato={meseSelezionato}
                 annoSelezionato={annoSelezionato}
                 entrate={datiMensili?.entrate?.lista || []}
-                percentualeTasse={datiMensili?.calcoli?.percentualeTasse || 31.75}
+                percentualeTasse={datiMensili?.calcoli?.percentualeTasse || 0}
                 onEntrateAggiornate={caricaDatiMensili}
               />
             )}
@@ -434,7 +434,7 @@ function AppContent() {
         <footer className="border-t border-gray-200 bg-white mt-16">
           <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="text-center text-sm text-gray-500">
-              <p>Gestione Finanze P.IVA - Partita IVA Forfettaria 15% - Tasse e INPS: 31.75%</p>
+              <p>Gestione Finanze P.IVA - Partita IVA Forfettaria - Tasse calcolate dinamicamente</p>
             </div>
           </div>
         </footer>

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Lock, Mail, Save, Eye, EyeOff, LogOut, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Lock, Mail, Save, Eye, EyeOff, LogOut, AlertCircle, CheckCircle, Trash2, X } from 'lucide-react';
 
 const AccountSettings: React.FC = () => {
-    const { user, updateProfile, changePassword, logout } = useAuth();
+    const { user, updateProfile, changePassword, deleteAccount, logout } = useAuth();
     const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
 
     // Profile form
@@ -27,6 +27,13 @@ const AccountSettings: React.FC = () => {
         new: false,
         confirm: false
     });
+
+    // Delete account modal
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -105,6 +112,23 @@ const AccountSettings: React.FC = () => {
     const handleLogout = () => {
         if (window.confirm('Sei sicuro di voler uscire?')) {
             logout();
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        setDeleteLoading(true);
+        setDeleteError('');
+
+        try {
+            // Per utenti Google, invia stringa vuota (non verificherà la password)
+            // Per utenti normali, invia la password
+            const passwordToSend = user?.email_verified ? '' : deletePassword;
+            await deleteAccount(passwordToSend);
+            // L'eliminazione è gestita nel AuthContext che fa logout automaticamente
+        } catch (error: any) {
+            setDeleteError(error.response?.data?.error || 'Errore nell\'eliminazione dell\'account');
+        } finally {
+            setDeleteLoading(false);
         }
     };
 
@@ -379,6 +403,140 @@ const AccountSettings: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Sezione Elimina Account */}
+            <div className="mt-8 pt-8 border-t-2 border-red-200">
+                <div className="bg-red-50 rounded-lg p-6">
+                    <div className="flex items-start space-x-3 mb-4">
+                        <Trash2 className="h-6 w-6 text-red-600 flex-shrink-0" />
+                        <div>
+                            <h4 className="text-lg font-semibold text-red-900 mb-2">Area Pericolosa</h4>
+                            <p className="text-sm text-red-700">
+                                Una volta eliminato il tuo account, tutti i tuoi dati verranno permanentemente rimossi.
+                                Questa azione non può essere annullata.
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowDeleteModal(true)}
+                        disabled={showDeleteModal}
+                        className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 focus:ring-4 focus:ring-red-200 transition-colors flex items-center space-x-2"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Elimina Account</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Modal Conferma Eliminazione */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-red-900 flex items-center space-x-2">
+                                <Trash2 className="h-6 w-6" />
+                                <span>Conferma Eliminazione Account</span>
+                            </h3>
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                disabled={deleteLoading}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="mb-6">
+                            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                            <p className="text-center text-gray-700 mb-4">
+                                Sei sicuro di voler eliminare il tuo account? Questa azione è irreversibile.
+                            </p>
+
+                            {/* Errore */}
+                            {deleteError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center space-x-2">
+                                    <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                                    <span>{deleteError}</span>
+                                </div>
+                            )}
+
+                            {/* Input - varia in base al tipo utente */}
+                            {user?.email_verified ? (
+                                // Utente Google - conferma con testo
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Digita "ELIMINA" per confermare
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={deleteConfirmText}
+                                        onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
+                                        placeholder="ELIMINA"
+                                        disabled={deleteLoading}
+                                        autoFocus
+                                    />
+                                </div>
+                            ) : (
+                                // Utente normale - conferma con password
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Inserisci la tua password per confermare
+                                    </label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                        <input
+                                            type="password"
+                                            value={deletePassword}
+                                            onChange={(e) => setDeletePassword(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
+                                            placeholder="La tua password"
+                                            disabled={deleteLoading}
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex space-x-4">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeletePassword('');
+                                    setDeleteConfirmText('');
+                                    setDeleteError('');
+                                }}
+                                disabled={deleteLoading}
+                                className="flex-1 bg-gray-200 text-gray-800 px-4 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteAccount}
+                                disabled={deleteLoading || (user?.email_verified ? deleteConfirmText !== 'ELIMINA' : !deletePassword)}
+                                className="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                            >
+                                {deleteLoading ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                        <span>Eliminazione...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 className="h-4 w-4" />
+                                        <span>Elimina Definitivamente</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

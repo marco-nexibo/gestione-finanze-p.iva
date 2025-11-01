@@ -42,6 +42,7 @@ export interface User {
     tenant_id: number;
     role: string;
     onboarding_completed: boolean;
+    email_verified?: boolean;
     subscription_status: string;
     subscription_end_date: number | null;
 }
@@ -87,8 +88,8 @@ export const authService = {
     },
 
     // Login con Google
-    loginWithGoogle: async (credential: string): Promise<AuthResponse> => {
-        const response = await api.post('/api/auth/google', { credential });
+    loginWithGoogle: async (access_token: string): Promise<AuthResponse> => {
+        const response = await api.post('/api/auth/google', { access_token });
         return response.data;
     },
 
@@ -125,6 +126,12 @@ export const authService = {
     // Cambio password
     changePassword: async (data: ChangePasswordData): Promise<{ message: string }> => {
         const response = await api.put('/api/auth/change-password', data);
+        return response.data;
+    },
+
+    // Elimina account
+    deleteAccount: async (password: string): Promise<{ message: string }> => {
+        const response = await api.delete('/api/auth/delete-account', { data: { password } });
         return response.data;
     },
 

@@ -12,6 +12,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     updateProfile: (nome: string, cognome: string) => Promise<void>;
     changePassword: (data: ChangePasswordData) => Promise<void>;
+    deleteAccount: (password: string) => Promise<void>;
     forgotPassword: (email: string) => Promise<{ message: string; resetToken?: string }>;
     resetPassword: (token: string, newPassword: string) => Promise<void>;
 }
@@ -129,6 +130,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
+    const deleteAccount = async (password: string) => {
+        try {
+            await authService.deleteAccount(password);
+            // Dopo l'eliminazione, pulisci lo stato locale
+            setUser(null);
+            setToken(null);
+            authService.logout();
+        } catch (error) {
+            throw error;
+        }
+    };
+
     const forgotPassword = async (email: string) => {
         try {
             const response = await authService.forgotPassword(email);
@@ -157,6 +170,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated: !!user && !!token,
         updateProfile,
         changePassword,
+        deleteAccount,
         forgotPassword,
         resetPassword
     };
