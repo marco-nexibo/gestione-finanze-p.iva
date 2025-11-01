@@ -1,7 +1,152 @@
 const express = require('express');
 const { hashPassword, comparePassword, generateToken, generateResetToken, authenticateToken } = require('./auth');
 const db = require('./database');
+const { OAuth2Client } = require('google-auth-library');
 const router = express.Router();
+
+// Inizializza Google OAuth Client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Google OAuth Login/Register
+router.post('/google', async (req, res) => {
+    const { access_token } = req.body;
+
+    if (!access_token) {
+        return res.status(400).json({ error: 'Access token Google mancante' });
+    }
+
+    try {
+        // Usa l'access token per ottenere le info utente
+        const https = require('https');
+        const response = await new Promise((resolve, reject) => {
+            const options = {
+                hostname: 'www.googleapis.com',
+                path: '/oauth2/v3/userinfo',
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${access_token}`
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+                res.on('end', () => {
+                    if (res.statusCode === 200) {
+                        resolve(JSON.parse(data));
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            req.end();
+        });
+
+        const { email, given_name, family_name, picture } = response;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email non disponibile dal profilo Google' });
+        }
+
+        // Cerca se l'utente esiste già
+        db.get(
+            'SELECT u.*, t.subscription_status, t.subscription_end_date FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.email = ?',
+            [email.toLowerCase()],
+            async (err, user) => {
+                if (err) {
+                    console.error('Errore nel recupero utente Google:', err);
+                    return res.status(500).json({ error: 'Errore del server' });
+                }
+
+                if (user) {
+                    // Utente esistente - login
+                    const token = generateToken(user);
+                    res.json({
+                        message: 'Login effettuato con Google',
+                        token,
+                        user: {
+                            id: user.id,
+                            email: user.email,
+                            nome: user.nome,
+                            cognome: user.cognome,
+                            tenant_id: user.tenant_id,
+                            role: user.role,
+                            onboarding_completed: user.onboarding_completed,
+                            subscription_status: user.subscription_status,
+                            subscription_end_date: user.subscription_end_date
+                        }
+                    });
+                } else {
+                    // Nuovo utente - registrazione
+                    const nome = given_name || 'Utente';
+                    const cognome = family_name || 'Google';
+
+                    // Genera una password casuale (non verrà mai usata dato che fa login con Google)
+                    const randomPassword = require('crypto').randomBytes(32).toString('hex');
+                    const passwordHash = await hashPassword(randomPassword);
+
+                    // Crea il tenant
+                    db.run(
+                        'INSERT INTO tenants (name, email, subscription_status, subscription_end_date) VALUES (?, ?, ?, ?)',
+                        [nome.trim() + ' ' + cognome.trim(), email.toLowerCase(), 'trial', new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)],
+                        function (err) {
+                            if (err) {
+                                console.error('Errore nella creazione tenant Google:', err);
+                                return res.status(500).json({ error: 'Errore nella registrazione' });
+                            }
+
+                            const tenantId = this.lastID;
+
+                            // Crea l'utente
+                            db.run(
+                                'INSERT INTO users (tenant_id, email, password_hash, nome, cognome, role, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                [tenantId, email.toLowerCase(), passwordHash, nome.trim(), cognome.trim(), 'owner', true],
+                                function (err) {
+                                    if (err) {
+                                        console.error('Errore nella registrazione utente Google:', err);
+                                        return res.status(500).json({ error: 'Errore nella registrazione' });
+                                    }
+
+                                    const token = generateToken({
+                                        id: this.lastID,
+                                        email: email.toLowerCase(),
+                                        tenant_id: tenantId
+                                    });
+
+                                    res.json({
+                                        message: 'Registrazione completata con Google',
+                                        token,
+                                        user: {
+                                            id: this.lastID,
+                                            email: email.toLowerCase(),
+                                            nome: nome.trim(),
+                                            cognome: cognome.trim(),
+                                            tenant_id: tenantId,
+                                            role: 'owner',
+                                            onboarding_completed: false,
+                                            subscription_status: 'trial',
+                                            subscription_end_date: null
+                                        }
+                                    });
+                                }
+                            );
+                        }
+                    );
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Errore nella verifica token Google:', error);
+        res.status(401).json({ error: 'Token Google non valido' });
+    }
+});
 
 // Registrazione
 router.post('/register', async (req, res) => {
