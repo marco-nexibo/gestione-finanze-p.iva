@@ -8,3 +8,4 @@ node_modules
 server/.env
 client/.env
 server/finanze.db
+server/finanze.db
