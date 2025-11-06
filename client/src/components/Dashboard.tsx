@@ -89,15 +89,15 @@ const Dashboard: React.FC<DashboardProps> = ({ meseSelezionato, annoSelezionato,
                     </div>
                 </div>
 
-                {/* Tasse */}
+                {/* Tasse e Contributi */}
                 <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-gray-600">
-                                Tasse ({calcoli.percentualeTasse}%)
+                                Tasse e Contributi ({calcoli.percentualeTasse}%)
                                 {calcoli.dettaglioTasse && (
                                     <span className="text-xs text-gray-500 block">
-                                        IRPEF: {calcoli.dettaglioTasse.irpef}% | INPS: {calcoli.dettaglioTasse.inps}% | Coeff: {calcoli.dettaglioTasse.coefficiente}%
+                                        IRPEF: {calcoli.dettaglioTasse.irpef}% | INPS: {calcoli.dettaglioTasse.aliquotaInps}% | Coeff: {calcoli.dettaglioTasse.coefficiente}%
                                     </span>
                                 )}
                             </p>
@@ -109,11 +109,11 @@ const Dashboard: React.FC<DashboardProps> = ({ meseSelezionato, annoSelezionato,
                     </div>
                 </div>
 
-                {/* Spese */}
+                {/* Uscite */}
                 <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Spese</p>
+                            <p className="text-sm font-medium text-gray-600">Uscite</p>
                             <p className="text-2xl font-bold text-orange-600">
                                 {formatCurrency(dati.spese.totale)}
                             </p>
@@ -150,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({ meseSelezionato, annoSelezionato,
                     </div>
 
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">- Tasse e INPS ({calcoli.percentualeTasse}%):</span>
+                        <span className="text-gray-600">- Tasse e Contributi ({calcoli.percentualeTasse}%):</span>
                         <span className="font-semibold text-red-600">-{formatCurrency(calcoli.tasseDaPagare)}</span>
                     </div>
 
@@ -165,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ meseSelezionato, annoSelezionato,
                                 <span>{formatCurrency(dati.entrate.totale * calcoli.dettaglioTasse.irpef / 100)}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span>• INPS ({calcoli.dettaglioTasse.inps}%):</span>
+                                <span>• INPS ({calcoli.dettaglioTasse.aliquotaInps}% sul reddito imponibile, {calcoli.dettaglioTasse.inps}% sul fatturato):</span>
                                 <span>{formatCurrency(dati.entrate.totale * calcoli.dettaglioTasse.inps / 100)}</span>
                             </div>
                         </div>
@@ -177,12 +177,12 @@ const Dashboard: React.FC<DashboardProps> = ({ meseSelezionato, annoSelezionato,
                     </div>
 
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">- Spese del mese:</span>
+                        <span className="text-gray-600">- Uscite del mese:</span>
                         <span className="font-semibold text-orange-600">-{formatCurrency(dati.spese.totale)}</span>
                     </div>
 
                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">= Disponibile dopo spese:</span>
+                        <span className="text-gray-600">= Disponibile dopo uscite:</span>
                         <span className="font-semibold text-purple-600">{formatCurrency(calcoli.disponibileDopSpese)}</span>
                     </div>
 

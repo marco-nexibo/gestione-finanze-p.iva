@@ -5,8 +5,8 @@ Applicativo completo per la gestione delle finanze per partite IVA forfettarie a
 ## Caratteristiche
 
 - 📊 **Dashboard completa** con calcolo automatico dello stipendio disponibile
-- 💰 **Gestione entrate** mensili con calcolo tasse (31.75%)
-- 🛒 **Tracciamento spese** con categorizzazione
+- 💰 **Gestione entrate** mensili con calcolo tasse e contributi
+- 🛒 **Tracciamento uscite** con categorizzazione
 - 💳 **Gestione prelievi** con controllo disponibilità
 - 📈 **Riepilogo annuale** con grafici e statistiche
 - 📱 **Responsive design** per desktop e mobile
@@ -62,20 +62,20 @@ L'applicazione sarà disponibile su:
 ## Funzionalità Principali
 
 ### Dashboard
-- Visualizzazione entrate, tasse, spese e stipendio disponibile
-- Calcolo automatico delle tasse al 31.75%
+- Visualizzazione entrate, tasse e contributi, uscite e stipendio disponibile
+- Calcolo automatico di tasse e contributi
 - Navigazione tra i mesi
 - Indicatori visivi per saldo positivo/negativo
 
 ### Gestione Entrate
 - Inserimento entrate mensili
-- Anteprima calcoli tasse
+- Anteprima calcoli tasse e contributi
 - Aggiornamento dati esistenti
 
-### Gestione Spese
-- Aggiunta spese con categoria e descrizione
-- Eliminazione spese
-- Totale spese mensili
+### Gestione Uscite
+- Aggiunta uscite con categoria e descrizione
+- Eliminazione uscite
+- Totale uscite mensili
 
 ### Gestione Prelievi
 - Registrazione prelievi/stipendi
@@ -92,10 +92,10 @@ L'applicazione sarà disponibile su:
 L'applicazione calcola automaticamente:
 
 1. **Entrate nette**: Importo fatturato
-2. **Tasse e INPS**: 31.75% delle entrate
-3. **Disponibile dopo tasse**: Entrate - Tasse
-4. **Disponibile dopo spese**: Disponibile dopo tasse - Spese
-5. **Stipendio disponibile**: Disponibile dopo spese - Prelievi già effettuati
+2. **Tasse e Contributi**: Calcolate dinamicamente in base al profilo fiscale (IRPEF + INPS)
+3. **Disponibile dopo tasse**: Entrate - Tasse e Contributi
+4. **Disponibile dopo uscite**: Disponibile dopo tasse - Uscite
+5. **Stipendio disponibile**: Disponibile dopo uscite - Prelievi già effettuati
 
 ## Deploy
 
@@ -124,7 +124,7 @@ Per migrare a un database online, modifica le configurazioni in `server/database
 
 - `GET /api/mese/:anno/:mese` - Dati mensili
 - `POST /api/entrate` - Salva entrate
-- `POST /api/spese` - Aggiungi spesa
+- `POST /api/spese` - Aggiungi uscita
 - `POST /api/prelievi` - Aggiungi prelievo
 - `DELETE /api/spese/:id` - Elimina spesa
 - `DELETE /api/prelievi/:id` - Elimina prelievo

@@ -70,8 +70,8 @@ const RiepilogoAnnuale: React.FC<RiepilogoAnnualeProps> = ({ annoSelezionato }) 
 
     const datiTorta = [
         { name: 'Entrate', value: dati.totali.entrate, color: COLORS[0] },
-        { name: 'Tasse', value: dati.totali.tasse, color: COLORS[2] },
-        { name: 'Spese', value: dati.totali.spese, color: COLORS[1] },
+        { name: 'Tasse e Contributi', value: dati.totali.tasse, color: COLORS[2] },
+        { name: 'Uscite', value: dati.totali.spese, color: COLORS[1] },
         { name: 'Prelievi', value: dati.totali.prelievi, color: COLORS[3] }
     ].filter(item => item.value > 0);
 
@@ -106,7 +106,7 @@ const RiepilogoAnnuale: React.FC<RiepilogoAnnualeProps> = ({ annoSelezionato }) 
                     <div className="flex items-center space-x-3">
                         <DollarSign className="h-6 w-6 text-red-500" />
                         <div>
-                            <p className="text-sm text-gray-600">Tasse</p>
+                            <p className="text-sm text-gray-600">Tasse e Contributi</p>
                             <p className="text-lg font-bold text-red-600">
                                 {formatCurrency(dati.totali.tasse)}
                             </p>
@@ -118,7 +118,7 @@ const RiepilogoAnnuale: React.FC<RiepilogoAnnualeProps> = ({ annoSelezionato }) 
                     <div className="flex items-center space-x-3">
                         <TrendingDown className="h-6 w-6 text-orange-500" />
                         <div>
-                            <p className="text-sm text-gray-600">Spese</p>
+                            <p className="text-sm text-gray-600">Uscite</p>
                             <p className="text-lg font-bold text-orange-600">
                                 {formatCurrency(dati.totali.spese)}
                             </p>
@@ -166,7 +166,7 @@ const RiepilogoAnnuale: React.FC<RiepilogoAnnualeProps> = ({ annoSelezionato }) 
                                 labelFormatter={(label) => `Mese: ${label}`}
                             />
                             <Bar dataKey="entrate" name="Entrate" fill="#10B981" />
-                            <Bar dataKey="spese" name="Spese" fill="#F59E0B" />
+                            <Bar dataKey="spese" name="Uscite" fill="#F59E0B" />
                             <Bar dataKey="prelievi" name="Prelievi" fill="#3B82F6" />
                         </BarChart>
                     </ResponsiveContainer>
@@ -211,10 +211,10 @@ const RiepilogoAnnuale: React.FC<RiepilogoAnnualeProps> = ({ annoSelezionato }) 
                                     Entrate
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Tasse
+                                    Tasse e Contributi
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Spese
+                                    Uscite
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Prelievi

@@ -51,6 +51,7 @@ export interface DatiMensili {
     dettaglioTasse?: {
       irpef: number;
       inps: number;
+      aliquotaInps: number;
       coefficiente: number;
       redditoImponibile: number;
     };
@@ -79,6 +80,7 @@ export interface RiepilogoAnnuale {
   dettaglioTasse?: {
     irpef: number;
     inps: number;
+    aliquotaInps: number;
     coefficiente: number;
     redditoImponibile: number;
   };

@@ -239,7 +239,7 @@ const GestioneEntrate: React.FC<GestioneEntrateProps> = ({
                 <span className="font-medium text-green-600">{formatCurrency(importoNumerico)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Tasse e INPS ({percentualeTasse}%):</span>
+                <span className="text-gray-600">Tasse e Contributi ({percentualeTasse}%):</span>
                 <span className="font-medium text-red-600">-{formatCurrency(tassePreviste)}</span>
               </div>
               <div className="flex justify-between border-t pt-1">

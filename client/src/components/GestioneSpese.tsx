@@ -137,11 +137,11 @@ const GestioneSpese: React.FC<GestioneSpeseProps> = ({
                 <div className="flex items-center space-x-3">
                     <ShoppingCart className="h-6 w-6 text-orange-600" />
                     <h3 className="text-lg font-semibold text-gray-900">
-                        Spese - {getNomeeMese(meseSelezionato)} {annoSelezionato}
+                        Uscite - {getNomeeMese(meseSelezionato)} {annoSelezionato}
                     </h3>
                 </div>
                 <div className="text-right">
-                    <p className="text-sm text-gray-600">Totale spese</p>
+                    <p className="text-sm text-gray-600">Totale uscite</p>
                     <p className="text-xl font-bold text-orange-600">{formatCurrency(totaleSpese)}</p>
                 </div>
             </div>
@@ -220,14 +220,14 @@ const GestioneSpese: React.FC<GestioneSpeseProps> = ({
                 </button>
             </form>
 
-            {/* Lista spese */}
+            {/* Lista uscite */}
             <div className="space-y-3">
-                <h4 className="font-medium text-gray-800">Spese del mese ({spese.length})</h4>
+                <h4 className="font-medium text-gray-800">Uscite del mese ({spese.length})</h4>
 
                 {spese.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                         <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Nessuna spesa registrata per questo mese</p>
+                        <p>Nessuna uscita registrata per questo mese</p>
                     </div>
                 ) : (
                     <div className="space-y-2">

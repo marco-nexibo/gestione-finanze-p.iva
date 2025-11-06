@@ -79,7 +79,7 @@ function AppContent() {
   const tabs = [
     { id: 'dashboard', nome: 'Dashboard', icona: BarChart3 },
     { id: 'entrate', nome: 'Entrate', icona: DollarSign },
-    { id: 'spese', nome: 'Spese', icona: ShoppingCart },
+    { id: 'spese', nome: 'Uscite', icona: ShoppingCart },
     { id: 'prelievi', nome: 'Prelievi', icona: Wallet },
     { id: 'riepilogo', nome: 'Riepilogo Annuale', icona: Calendar },
   ];
@@ -434,7 +434,7 @@ function AppContent() {
         <footer className="border-t border-gray-200 bg-white mt-16">
           <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="text-center text-sm text-gray-500">
-              <p>Gestione Finanze P.IVA - Partita IVA Forfettaria - Tasse calcolate dinamicamente</p>
+              <p>Gestione Finanze P.IVA - Partita IVA Forfettaria - Tasse e Contributi calcolati dinamicamente</p>
             </div>
           </div>
         </footer>

@@ -308,6 +308,7 @@ function calcolaPercentualiTasse(profiloFiscale, anno) {
             dettaglio: {
                 irpef: 15,
                 inps: 24,
+                aliquotaInps: 24,
                 coefficiente: 100
             }
         };
@@ -322,6 +323,7 @@ function calcolaPercentualiTasse(profiloFiscale, anno) {
             dettaglio: {
                 irpef: 15,
                 inps: 24,
+                aliquotaInps: 24,
                 coefficiente: 100
             }
         };
@@ -329,7 +331,11 @@ function calcolaPercentualiTasse(profiloFiscale, anno) {
 
     const coefficiente = profiloFiscale.coefficiente_redditivita;
     const irpef = profiloFiscale.aliquota_irpef; // 5 o 15
-    const inps = datiNormativi[profiloFiscale.gestione_inps]?.aliquota_inps || 24;
+    // Mappa gestione_inps dal DB alle chiavi del JSON
+    const gestioneInpsKey = profiloFiscale.gestione_inps === 'separata'
+        ? 'gestione_separata'
+        : 'artigiani_commercianti';
+    const inps = datiNormativi[gestioneInpsKey]?.aliquota_inps || 24;
 
     // Calcolo percentuale effettiva CORRETTO
     // Nel regime forfettario:
@@ -353,6 +359,7 @@ function calcolaPercentualiTasse(profiloFiscale, anno) {
         dettaglio: {
             irpef: Math.round(irpefEffettivo * 100) / 100,      // Percentuale IRPEF effettiva sul fatturato
             inps: Math.round(inpsEffettivo * 100) / 100,        // Percentuale INPS effettiva sul fatturato
+            aliquotaInps: inps,                                  // Aliquota INPS pura (es. 26.07% o 24%)
             coefficiente,
             redditoImponibile: coefficiente
         }
@@ -387,10 +394,10 @@ app.post('/api/profilo-fiscale', authenticateToken, async (req, res) => {
     try {
         // Convert gestioneInps from frontend format to backend format
         const gestioneInpsDb = gestioneInps === 'artigiani_commercianti' ? 'ordinaria' : 'separata';
-        
+
         // Use the helper query which handles tenant_id automatically
         const result = await profiloFiscaleQueries.insert(req.tenantId, aliquotaIrpef, coefficienteRedditivita, gestioneInpsDb);
-        
+
         res.json({
             success: true,
             message: 'Profilo fiscale salvato correttamente',
